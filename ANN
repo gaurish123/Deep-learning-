@@ -1,0 +1,115 @@
+##building customer credit risk default classifer using ANN
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+
+
+##reading the dataset
+dataset=pd.read_csv('Churn_Modelling.csv')
+##creating regressor and dependent variables
+X=dataset.iloc[:,3:13].values
+y=dataset.iloc[:,13].values
+##to view X
+df=pd.DataFrame(X)
+
+##lable encoding then using one hot encoder
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+labelencoder_1=LabelEncoder()
+X[:,1]=labelencoder_1.fit_transform(X[:,1])
+labelencoder_2=LabelEncoder()
+X[:,2]=labelencoder_1.fit_transform(X[:,2])
+onehotencoder=OneHotEncoder(categorical_features=[1])
+X=onehotencoder.fit_transform(X).toarray()  ##one hot encoding will bring dummy variables to the front
+df=pd.DataFrame(X)
+X=X[:,1:]
+##first slpit into triin and test
+from sklearn.model_selection import train_test_split
+X_train, X_test, Y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=0)
+
+###now scaling feature
+from sklearn.preprocessing import StandardScaler
+sc=StandardScaler()
+X_train=sc.fit_transform(X_train)
+X_test=sc.transform(X_test)
+##now lets make a ANN
+import theano
+import tensorflow
+import keras
+from keras.models import Sequential
+from keras.layers import Activation, Dense
+classifier=Sequential()
+####adding input and first hidden layers
+classifier.add(Dense(units=6, kernel_initializer='uniform',activation='relu',input_dim=11))
+##adding one more layer
+classifier.add(Dense(units=6, kernel_initializer='uniform',activation='relu'))
+##adding the output later
+classifier.add(Dense(units=1, kernel_initializer='uniform',activation='sigmoid'))
+##compiling ANN
+classifier.compile(optimizer='adam',loss='binary_crossentropy',metrics=['accuracy'])
+
+##fitting classifier to training set
+classifier.fit(X_train,Y_train,batch_size=10,epochs=100)
+
+##prediciting based on classifier
+y_pred=classifier.predict(X_test)
+y_pred=(y_pred>0.5)
+
+##confusion matrix
+from sklearn.metrics import confusion_matrix
+cm=confusion_matrix(y_test,y_pred)
+###getting same accuracy - now use cross validation
+##predicitng for a single new observation
+"""Predict if the customer with the following informations will leave the bank:
+Geography: France
+Credit Score: 600
+Gender: Male
+Age: 40
+Tenure: 3
+Balance: 60000
+Number of Products: 2
+Has Credit Card: Yes
+Is Active Member: Yes
+Estimated Salary: 50000"""
+newob=sc.transform(np.array([[0,0,600,1,40,3,60000,2,1,1,50000]]))
+newob_pred=classifier.predict(newob)
+newob_pred=(newob_pred>0.5)
+
+
+##implementing cross validation for this problem
+from keras.wrappers.scikit_learn import KerasClassifier
+from sklearn.model_selection import cross_val_score
+from keras.models import Sequential
+from keras.layers import Dense
+def build_classifier():
+    classifier=Sequential()
+    classifier.add(Dense(units=6, kernel_initializer='uniform',activation='relu',input_dim=11))
+    classifier.add(Dense(units=6, kernel_initializer='uniform',activation='relu'))
+    classifier.add(Dense(units=1, kernel_initializer='uniform',activation='sigmoid'))
+    classifier.compile(optimizer='adam',loss='binary_crossentropy',metrics=['accuracy'])
+    return classifier
+classifier=KerasClassifier(build_fn=build_classifier, batch_size=10, epochs=100)
+accuracies=cross_val_score(estimator=classifier, X=X_train, y=Y_train, cv=10, n_jobs=1)
+
+
+##hyperparameterr tuning
+from keras.wrappers.scikit_learn import KerasClassifier
+from sklearn.model_selection import GridSearchCV
+from keras.models import Sequential
+from keras.layers import Dense
+def build_classifier_cv(optimizer):
+    classifier = Sequential()
+    classifier.add(Dense(units=6, kernel_initializer='uniform', activation='relu', input_dim=11))
+    classifier.add(Dense(units=6, kernel_initializer='uniform', activation='relu'))
+    classifier.add(Dense(units=1, kernel_initializer='uniform', activation='sigmoid'))
+    classifier.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+    return classifier
+classifier = KerasClassifier(build_classifier_cv)
+parameters={'batch_size':[10,25],
+            'epochs':[200,300],
+            'optimizer':['adam','rmsprop']}
+gridsearch=GridSearchCV(estimator=classifier, param_grid=parameters, scoring='accuracy',cv=10)
+grid_search=gridsearch.fit(X_train,Y_train)
+best_parameters=gridsearch.best_params_
+best_accuracy=gridsearch.best_score_
+final_val=gridsearch.best_estimator_.predict(X_test)
+##so this is how we can build ANN network
