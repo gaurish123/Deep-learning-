@@ -1,0 +1,73 @@
+##building a CNN model
+import os
+os.chdir('C:/Users/Gaurish/Desktop/Deep Learning Kiril Eriminko/P16-Deep-Learning-AZ/Deep_Learning_A_Z/Volume 1 - Supervised Deep Learning/Part 2 - Convolutional Neural Networks (CNN)/Section 8 - Building a CNN')
+
+##importing modules
+from keras.models import Sequential
+from keras.layers import Conv2D
+from keras.layers import MaxPooling2D
+from keras.layers import Flatten
+from keras.layers import Dense
+
+##Initializing CNN
+classifier=Sequential()
+
+##step1convolution
+classifier.add(Conv2D(32, (3,3), input_shape=(64,64,3),activation='relu'))
+
+##step 2 max pooling
+classifier.add(MaxPooling2D(pool_size=(2,2)))
+
+classifier.add(Conv2D(32, (3,3),activation='relu'))
+
+##step 2 max pooling
+classifier.add(MaxPooling2D(pool_size=(2,2)))
+
+#step 3 flattening the input values
+classifier.add(Flatten())
+
+##adding the dense layers one by one
+classifier.add(Dense(units=128, activation='relu'))
+classifier.add(Dense(units=1, activation='sigmoid'))
+
+##compiling the CNN
+classifier.compile(optimizer='adam',loss='binary_crossentropy',metrics=['accuracy'])
+
+###feeding the dataset, data augmentation
+from keras.preprocessing.image import ImageDataGenerator
+train_datagen = ImageDataGenerator(
+        rescale=1./255,
+        shear_range=0.2,
+        zoom_range=0.2,
+        horizontal_flip=True)
+
+test_datagen = ImageDataGenerator(rescale=1./255)
+
+train_dataset = train_datagen.flow_from_directory('dataset/training_set',
+                                                  target_size=(64, 64),
+                                                  batch_size=32,
+                                                  class_mode='binary')
+
+test_dataset = test_datagen.flow_from_directory('dataset/test_set',
+                                                target_size=(64, 64),
+                                                batch_size=32,
+                                                class_mode='binary')
+
+classifier.fit_generator(train_dataset,
+                         steps_per_epoch=8000,   ##training dataset size
+                         epochs=1,
+                         validation_data=test_dataset,
+                         validation_steps=2000)  ##test dataset size
+###predicitng on the single new observation
+import numpy as np
+from keras.preprocessing import image
+test_image=image.load_img(path='dataset/single_prediction/cat_or_dog_1.jpg',target_size=(64,64,3))
+test_image=image.img_to_array(test_image)
+test_image=np.expand_dims(test_image,axis=0)
+result=classifier.predict_proba(test_image)
+
+train_dataset.class_indices
+if result[0][0]==1:
+    print("DOG")
+else:
+    print("CAT")
